@@ -1,0 +1,21 @@
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_DB: bangkok_flood
+      POSTGRES_USER: bangkok
+      # Local development only; change this before exposing the database.
+      POSTGRES_PASSWORD: bangkok_dev_only
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./migrations/001_create_spatial_tables.sql:/docker-entrypoint-initdb.d/001_create_spatial_tables.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bangkok -d bangkok_flood"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres_data:
