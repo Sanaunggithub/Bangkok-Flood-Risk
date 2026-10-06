@@ -147,6 +147,7 @@ def main():
                 """,
                 river_rows,
             )
+            cur.execute("REFRESH MATERIALIZED VIEW building_risk")
 
     print(
         f"Loaded {len(district_rows)} districts, "
