@@ -1,4 +1,5 @@
 import os
+import pandas as pd
 
 import osmnx as ox
 import psycopg
@@ -13,6 +14,9 @@ DATABASE_URL = os.getenv(
     "DATABASE_URL",
     "postgresql://bangkok:bangkok_dev_only@localhost:5433/bangkok_flood",
 )
+
+def clean(value):
+    return None if pd.isna(value) else str(value)
 
 
 def osm_id(row):
@@ -73,8 +77,8 @@ def main():
                     building_rows.append(
                         (
                             osm_id(row),
-                            str(building_name) if building_name else None,
-                            str(building_type) if building_type else None,
+                            clean(building_name),
+                            clean(building_type),
                             levels,
                             wkb.dumps(polygon),
                         )
