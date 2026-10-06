@@ -1,1 +1,25 @@
-/context
+# secrets
+.env
+*.env.local
+
+# data cache
+infra/cache/
+
+# python
+__pycache__/
+.venv/
+
+# node / next
+node_modules/
+.next/
+
+# kotlin / gradle
+.gradle/
+build/
+*.class
+
+# editor / os
+.idea/
+.DS_Store
+
+infra/cache/

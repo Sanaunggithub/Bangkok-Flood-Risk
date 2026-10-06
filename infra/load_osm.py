@@ -6,6 +6,8 @@ from shapely import wkb
 from shapely.geometry import LineString, MultiLineString, MultiPolygon, Polygon
 from shapely.ops import unary_union
 
+ox.settings.cache_folder = "infra/cache"
+
 DISTRICTS = ["Pathum Wan", "Bang Rak", "Khlong Toei"]
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
@@ -78,25 +80,35 @@ def main():
                         )
                     )
 
-    search_area = unary_union(district_geometries)
+        # Buffer a little (~1 km in degrees) so a river on the district edge is still found.
+    search_area = unary_union(district_geometries).buffer(0.01)
     river_features = ox.features_from_polygon(
         search_area, tags={"waterway": "river"}
     )
 
-    river_rows = []
-    for _, row in river_features.iterrows():
-        river_name = str(row.get("name") or "")
-        if "chao phraya" not in river_name.casefold():
-            continue
+    def is_chao_phraya(row):
+        names = " ".join(
+            str(row.get(key) or "")
+            for key in ("name", "name:en", "name:th", "alt_name")
+        ).casefold()
+        return "chao phraya" in names or "เจ้าพระยา" in names
 
-        for line in line_parts(row.geometry):
-            if not line.is_empty and line.is_valid:
-                river_rows.append(("Chao Phraya", wkb.dumps(line)))
+    def collect_river_rows(only_named):
+        rows = []
+        for _, row in river_features.iterrows():
+            if only_named and not is_chao_phraya(row):
+                continue
+            for line in line_parts(row.geometry):
+                if not line.is_empty and line.is_valid:
+                    rows.append(("Chao Phraya", wkb.dumps(line)))
+        return rows
 
+    river_rows = collect_river_rows(only_named=True)
     if not river_rows:
-        raise RuntimeError(
-            "No named Chao Phraya river segments found in the selected districts."
-        )
+        print("Warning: no named Chao Phraya segments, using any waterway=river lines.")
+        river_rows = collect_river_rows(only_named=False)
+    if not river_rows:
+        raise RuntimeError("No river lines found near the selected districts.")
 
     # Keep the refresh atomic: if an insert fails, the previous data remains.
     with psycopg.connect(DATABASE_URL) as conn:
