@@ -11,7 +11,7 @@ ox.settings.cache_folder = "infra/cache"
 DISTRICTS = ["Pathum Wan", "Bang Rak", "Khlong Toei"]
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
-    "postgresql://bangkok:bangkok_dev_only@localhost:5432/bangkok_flood",
+    "postgresql://bangkok:bangkok_dev_only@localhost:5433/bangkok_flood",
 )
 
 
@@ -85,6 +85,11 @@ def main():
     river_features = ox.features_from_polygon(
         search_area, tags={"waterway": "river"}
     )
+
+    print("River features found:", len(river_features))
+    print(river_features.columns.tolist())
+    for _, row in river_features.head(20).iterrows():
+        print(row.get("name"), "|", row.get("name:en"), "|", row.geometry.geom_type)
 
     def is_chao_phraya(row):
         names = " ".join(
