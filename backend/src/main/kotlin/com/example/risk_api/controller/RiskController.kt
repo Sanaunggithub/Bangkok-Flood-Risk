@@ -16,12 +16,20 @@ import org.springframework.web.bind.annotation.RestController
 @RequestMapping("/api")
 class RiskController(private val riskService: RiskService) {
 
-    @GetMapping("/districts") fun districts(): JsonNode = riskService.districts()
+    @GetMapping("/districts")
+    fun districts(): JsonNode = riskService.districts()
 
     @GetMapping("/districts/{id}/buildings")
-    fun buildingsInDistrict(@PathVariable id: Long): JsonNode = riskService.buildingsInDistrict(id)
+    fun buildingsInDistrict(@PathVariable id: Long): JsonNode =
+        riskService.buildingsInDistrict(id)
 
     @GetMapping("/buildings/near-river")
     fun buildingsNearRiver(@RequestParam @Min(1) @Max(5000) meters: Int): JsonNode =
-            riskService.buildingsNearRiver(meters)
+        riskService.buildingsNearRiver(meters)
+
+    @GetMapping("/buildings/top-risk")
+    fun topRisk(
+        @RequestParam(defaultValue = "10") @Min(1) @Max(50) limit: Int,
+        @RequestParam(required = false) @Min(1) districtId: Long?
+    ): JsonNode = riskService.topRisk(limit, districtId)
 }
