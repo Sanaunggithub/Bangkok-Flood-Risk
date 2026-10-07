@@ -1,25 +1,36 @@
-# secrets
+# secrets (commit .env.example, never .env)
 .env
-*.env.local
+.env.*
+!.env.example
 
-# data cache
+# logs
+*.log
+
+# data cache (OSMnx downloads)
+cache/
 infra/cache/
 
 # python
-__pycache__/
 .venv/
+__pycache__/
+*.pyc
 
-# node / next
-node_modules/
-.next/
-
-# kotlin / gradle
+# backend (Gradle / Kotlin / jOOQ generated code)
+backend/build/
+backend/.gradle/
 .gradle/
 build/
 *.class
+!gradle/wrapper/gradle-wrapper.jar
 
-# editor / os
+# frontend (Next.js)
+node_modules/
+.next/
+out/
+next-env.d.ts
+*.tsbuildinfo
+
+# editor / OS
 .idea/
+.vscode/
 .DS_Store
-
-infra/cache/
