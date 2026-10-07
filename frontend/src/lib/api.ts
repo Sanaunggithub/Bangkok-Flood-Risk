@@ -2,6 +2,7 @@ import type {
   DistrictBuildingsResponse,
   DistrictsResponse,
   NearRiverBuildingsResponse,
+  TopRiskResponse,
 } from './types';
 
 const API_BASE_URL = (
@@ -32,4 +33,14 @@ export function getNearRiverBuildings(
   meters: number,
 ): Promise<NearRiverBuildingsResponse> {
   return getJson(`/api/buildings/near-river?meters=${encodeURIComponent(String(meters))}`);
+}
+
+export function getTopRiskBuildings(
+  limit: number,
+  districtId?: string | number,
+): Promise<TopRiskResponse> {
+  const query = new URLSearchParams({ limit: String(limit) });
+  if (districtId !== undefined) query.set('districtId', String(districtId));
+
+  return getJson(`/api/buildings/top-risk?${query.toString()}`);
 }

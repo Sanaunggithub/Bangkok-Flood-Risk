@@ -12,6 +12,7 @@ import type { MapViewProps } from '../components/MapView';
 import type {
   DistrictBuildingsResponse,
   DistrictProperties,
+  FlyTarget,
 } from '../lib/types';
 
 const MapView = dynamic<MapViewProps>(
@@ -24,6 +25,8 @@ export default function HomePage() {
   const [buildings, setBuildings] = useState<DistrictBuildingsResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [minRisk, setMinRisk] = useState(0);
+  const [flyTarget, setFlyTarget] = useState<FlyTarget | null>(null);
   const requestId = useRef(0);
 
   const loadDistrictBuildings = useCallback(async (selected: DistrictProperties) => {
@@ -71,24 +74,33 @@ export default function HomePage() {
     setError(null);
   }, []);
 
-    return (
-        <Box sx={{ display: 'flex', width: '100vw', height: '100vh', overflow: 'hidden' }}>
-            <SidePanel
-                district={district}
-                loading={loading}
-                error={error}
-                onShowNearRiver={loadNearRiverBuildings}
-                onClear={clear}
-            />
-            <Box component="main" sx={{ flex: 1, minWidth: 0, height: '100%', position: 'relative' }}>
-                <MapView
-                    selectedDistrict={district}
-                    buildings={buildings}
-                    buildingsLoading={loading}
-                    buildingsError={error}
-                    onDistrictSelect={loadDistrictBuildings}
-                />
-            </Box>
-        </Box>
-    );
+  const handleFlyTo = useCallback((lng: number, lat: number) => {
+    setFlyTarget({ lng, lat, key: Date.now() });
+  }, []);
+
+  return (
+    <Box sx={{ display: 'flex', width: '100vw', height: '100vh', overflow: 'hidden' }}>
+      <SidePanel
+        district={district}
+        loading={loading}
+        error={error}
+        minRisk={minRisk}
+        onMinRiskChange={setMinRisk}
+        onFlyTo={handleFlyTo}
+        onShowNearRiver={loadNearRiverBuildings}
+        onClear={clear}
+      />
+      <Box component="main" sx={{ flex: 1, minWidth: 0, height: '100%', position: 'relative' }}>
+        <MapView
+          selectedDistrict={district}
+          buildings={buildings}
+          buildingsLoading={loading}
+          buildingsError={error}
+          onDistrictSelect={loadDistrictBuildings}
+          minRisk={minRisk}
+          flyTarget={flyTarget}
+        />
+      </Box>
+    </Box>
+  );
 }

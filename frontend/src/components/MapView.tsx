@@ -6,19 +6,22 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { Alert, Box, CircularProgress, Typography } from '@mui/material';
 import { getDistricts } from '../lib/api';
 import type {
-    BuildingProperties,
+    DistrictBuildingsResponse,
     DistrictProperties,
     DistrictsResponse,
+    FlyTarget,
 } from '../lib/types';
 
 maplibregl.setWorkerUrl('/maplibre-gl-csp-worker.js');
 
 export interface MapViewProps {
     selectedDistrict: DistrictProperties | null;
-    buildings: import('../lib/types').DistrictBuildingsResponse | null;
+    buildings: DistrictBuildingsResponse | null;
     buildingsLoading: boolean;
     buildingsError: string | null;
     onDistrictSelect: (district: DistrictProperties) => void;
+    minRisk?: number;
+    flyTarget?: FlyTarget | null;
 }
 
 const EMPTY_DISTRICTS: DistrictsResponse = {
@@ -26,7 +29,7 @@ const EMPTY_DISTRICTS: DistrictsResponse = {
     features: [],
 };
 
-const EMPTY_BUILDINGS: import('../lib/types').DistrictBuildingsResponse = {
+const EMPTY_BUILDINGS: DistrictBuildingsResponse = {
     type: 'FeatureCollection',
     features: [],
 };
@@ -37,6 +40,8 @@ export default function MapView({
     buildingsLoading,
     buildingsError,
     onDistrictSelect,
+    minRisk = 0,
+    flyTarget = null,
 }: MapViewProps) {
     const containerRef = useRef<HTMLDivElement>(null);
     const mapRef = useRef<maplibregl.Map | null>(null);
@@ -134,7 +139,60 @@ export default function MapView({
                 },
             });
 
+            map.on('click', 'building-fill', (event) => {
+                const properties = event.features?.[0]?.properties as
+                    | Record<string, unknown>
+                    | undefined;
+                if (!properties) return;
+
+                const displayValue = (value: unknown, fallback: string): string => {
+                    if (typeof value === 'string' && value.trim()) return value;
+                    if (typeof value === 'number') return String(value);
+                    return fallback;
+                };
+
+                const content = document.createElement('div');
+                const title = document.createElement('strong');
+                title.textContent = displayValue(properties.name, 'Unnamed building');
+                content.appendChild(title);
+
+                const addRow = (label: string, value: string) => {
+                    const row = document.createElement('div');
+                    row.textContent = `${label}: ${value}`;
+                    content.appendChild(row);
+                };
+
+                addRow('Building type', displayValue(properties.building_type, 'unknown'));
+                addRow('Floors', displayValue(properties.levels, 'unknown'));
+
+                const distance = properties.river_distance_m;
+                addRow(
+                    'Distance to river',
+                    typeof distance === 'number' ? `${Math.round(distance)} m` : 'unknown',
+                );
+
+                const risk = properties.risk_score;
+                addRow('Risk score', typeof risk === 'number' ? risk.toFixed(2) : 'unknown');
+
+                new maplibregl.Popup()
+                    .setLngLat(event.lngLat)
+                    .setDOMContent(content)
+                    .addTo(map);
+            });
+
+            map.on('mouseenter', 'building-fill', () => {
+                map.getCanvas().style.cursor = 'pointer';
+            });
+            map.on('mouseleave', 'building-fill', () => {
+                map.getCanvas().style.cursor = '';
+            });
+
             map.on('click', 'district-fill', (event) => {
+                // Do not select a district when the click is on a building above it.
+                if (map.queryRenderedFeatures(event.point, { layers: ['building-fill'] }).length > 0) {
+                    return;
+                }
+
                 const properties = event.features?.[0]?.properties as
                     | Record<string, unknown>
                     | undefined;
@@ -207,6 +265,23 @@ export default function MapView({
             | undefined;
         source?.setData(buildings ?? EMPTY_BUILDINGS);
     }, [buildings, mapReady]);
+
+    useEffect(() => {
+        if (!mapReady) return;
+        mapRef.current?.setFilter('building-fill', [
+            '>=',
+            ['get', 'risk_score'],
+            minRisk,
+        ]);
+    }, [mapReady, minRisk]);
+
+    useEffect(() => {
+        if (!mapReady || !flyTarget) return;
+        mapRef.current?.flyTo({
+            center: [flyTarget.lng, flyTarget.lat],
+            zoom: 16,
+        });
+    }, [flyTarget, mapReady]);
 
     const selectedName =
         selectedDistrict?.district_name ||
