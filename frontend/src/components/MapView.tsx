@@ -57,11 +57,32 @@ export default function MapView({
         let cancelled = false;
         const map = new maplibregl.Map({
             container: containerRef.current,
-            style: 'https://tiles.openfreemap.org/styles/liberty',
+            style: {
+                version: 8,
+                sources: {
+                    osm: {
+                        type: 'raster',
+                        tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+                        tileSize: 256,
+                        attribution: '© OpenStreetMap contributors',
+                    },
+                },
+                layers: [{ id: 'osm', type: 'raster', source: 'osm' }],
+            },
             center: [100.54, 13.73],
             zoom: 12,
         });
+
         mapRef.current = map;
+
+        const container = containerRef.current;
+        const resizeObserver = new ResizeObserver(() => map.resize());
+        resizeObserver.observe(container);
+
+        map.on('error', (event) => {
+            console.error('MapLibre error:', event.error);
+        });
+
         map.addControl(new maplibregl.NavigationControl(), 'top-right');
 
         map.on('load', () => {
@@ -164,6 +185,7 @@ export default function MapView({
             });
 
         return () => {
+            resizeObserver.disconnect();
             cancelled = true;
             map.remove();
             mapRef.current = null;
@@ -193,7 +215,10 @@ export default function MapView({
 
     return (
         <Box sx={{ position: 'relative', width: '100%', height: '100%', minHeight: 400 }}>
-            <Box ref={containerRef} sx={{ position: 'absolute', inset: 0 }} />
+            <div
+                ref={containerRef}
+                style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 }}
+            />
 
             <Box
                 aria-label="Map risk legend"

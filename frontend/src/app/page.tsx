@@ -71,24 +71,24 @@ export default function HomePage() {
     setError(null);
   }, []);
 
-  return (
-    <Box sx={{ display: 'flex', width: '100%', height: '100vh', overflow: 'hidden' }}>
-      <SidePanel
-        district={district}
-        loading={loading}
-        error={error}
-        onShowNearRiver={loadNearRiverBuildings}
-        onClear={clear}
-      />
-      <Box component="main" sx={{ flex: 1, minWidth: 0, height: '100%' }}>
-        <MapView
-          selectedDistrict={district}
-          buildings={buildings}
-          buildingsLoading={loading}
-          buildingsError={error}
-          onDistrictSelect={loadDistrictBuildings}
-        />
-      </Box>
-    </Box>
-  );
+    return (
+        <Box sx={{ display: 'flex', width: '100vw', height: '100vh', overflow: 'hidden' }}>
+            <SidePanel
+                district={district}
+                loading={loading}
+                error={error}
+                onShowNearRiver={loadNearRiverBuildings}
+                onClear={clear}
+            />
+            <Box component="main" sx={{ flex: 1, minWidth: 0, height: '100%', position: 'relative' }}>
+                <MapView
+                    selectedDistrict={district}
+                    buildings={buildings}
+                    buildingsLoading={loading}
+                    buildingsError={error}
+                    onDistrictSelect={loadDistrictBuildings}
+                />
+            </Box>
+        </Box>
+    );
 }
