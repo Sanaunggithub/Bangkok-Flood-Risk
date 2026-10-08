@@ -145,15 +145,23 @@ export default function MapView({
                     | undefined;
                 if (!properties) return;
 
-                const displayValue = (value: unknown, fallback: string): string => {
-                    if (typeof value === 'string' && value.trim()) return value;
-                    if (typeof value === 'number') return String(value);
-                    return fallback;
+                const displayValue = (value: unknown): string | null => {
+                    if (typeof value === 'string' && value.trim()) return value.trim();
+                    if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+                    return null;
                 };
+
+                const buildingType = displayValue(properties.building_type);
+                const buildingName = displayValue(properties.name);
+                const titleText =
+                    buildingName ||
+                    (buildingType && buildingType.toLowerCase() !== 'yes'
+                        ? `${buildingType.charAt(0).toUpperCase()}${buildingType.slice(1)} building`
+                        : 'Building');
 
                 const content = document.createElement('div');
                 const title = document.createElement('strong');
-                title.textContent = displayValue(properties.name, 'Unnamed building');
+                title.textContent = titleText;
                 content.appendChild(title);
 
                 const addRow = (label: string, value: string) => {
@@ -162,17 +170,28 @@ export default function MapView({
                     content.appendChild(row);
                 };
 
-                addRow('Building type', displayValue(properties.building_type, 'unknown'));
-                addRow('Floors', displayValue(properties.levels, 'unknown'));
+                if (buildingType) addRow('Building type', buildingType);
+
+                const floors = displayValue(properties.levels);
+                if (floors) addRow('Floors', floors);
 
                 const distance = properties.river_distance_m;
                 addRow(
                     'Distance to river',
-                    typeof distance === 'number' ? `${Math.round(distance)} m` : 'unknown',
+                    typeof distance === 'number' && Number.isFinite(distance)
+                        ? `${Math.round(distance)} m`
+                        : displayValue(distance)
+                          ? `${displayValue(distance)} m`
+                          : 'unknown',
                 );
 
                 const risk = properties.risk_score;
-                addRow('Risk score', typeof risk === 'number' ? risk.toFixed(2) : 'unknown');
+                addRow(
+                    'Risk score',
+                    typeof risk === 'number' && Number.isFinite(risk)
+                        ? risk.toFixed(2)
+                        : displayValue(risk) ?? 'unknown',
+                );
 
                 new maplibregl.Popup()
                     .setLngLat(event.lngLat)

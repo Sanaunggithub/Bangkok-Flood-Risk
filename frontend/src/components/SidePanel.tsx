@@ -29,6 +29,16 @@ interface SidePanelProps {
   onClear: () => void;
 }
 
+function getBuildingTitle(name: unknown, buildingType: unknown): string {
+  const buildingName = typeof name === 'string' ? name.trim() : '';
+  if (buildingName) return buildingName;
+
+  const type = typeof buildingType === 'string' ? buildingType.trim() : '';
+  if (!type || type.toLowerCase() === 'yes') return 'Building';
+
+  return `${type.charAt(0).toUpperCase()}${type.slice(1)} building`;
+}
+
 export default function SidePanel({
   district,
   loading,
@@ -181,6 +191,15 @@ export default function SidePanel({
             <List dense disablePadding>
               {topRiskBuildings.features.map((feature) => {
                 const properties = feature.properties;
+                const districtName =
+                  typeof properties.district_name === 'string'
+                    ? properties.district_name.trim()
+                    : '';
+                const riskScore =
+                  typeof properties.risk_score === 'number' &&
+                  Number.isFinite(properties.risk_score)
+                    ? `Risk ${properties.risk_score.toFixed(2)}`
+                    : '';
 
                 return (
                   <ListItemButton
@@ -189,8 +208,8 @@ export default function SidePanel({
                     sx={{ px: 1, borderRadius: 1 }}
                   >
                     <ListItemText
-                      primary={properties.name || 'Unnamed building'}
-                      secondary={`${properties.district_name} · Risk ${properties.risk_score.toFixed(2)}`}
+                      primary={getBuildingTitle(properties.name, properties.building_type)}
+                      secondary={[districtName, riskScore].filter(Boolean).join(' · ')}
                     />
                   </ListItemButton>
                 );
