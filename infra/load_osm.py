@@ -1,19 +1,20 @@
 import os
-import pandas as pd
 
 import osmnx as ox
+import pandas as pd
 import psycopg
 from shapely import wkb
 from shapely.geometry import LineString, MultiLineString, MultiPolygon, Polygon
 from shapely.ops import unary_union
 
-ox.settings.cache_folder = "infra/cache"
+ox.settings.cache_folder = os.getenv("CACHE_DIR", "infra/cache")
 
 DISTRICTS = ["Pathum Wan", "Bang Rak", "Khlong Toei"]
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
     "postgresql://bangkok:bangkok_dev_only@localhost:5433/bangkok_flood",
 )
+
 
 def clean(value):
     return None if pd.isna(value) else str(value)
@@ -84,7 +85,7 @@ def main():
                         )
                     )
 
-        # Buffer a little (~1 km in degrees) so a river on the district edge is still found.
+    # Buffer a little (~1 km in degrees) so a river on the district edge is still found.
     search_area = unary_union(district_geometries).buffer(0.01)
     river_features = ox.features_from_polygon(
         search_area, tags={"waterway": "river"}

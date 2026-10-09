@@ -1,0 +1,79 @@
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_DB: bangkok_flood
+      POSTGRES_USER: bangkok
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bangkok_dev_only}
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infra/migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bangkok -d bangkok_flood"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      SERVER_PORT: "8081"
+      DB_URL: jdbc:postgresql://db:5432/bangkok_flood
+      DB_USER: bangkok
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-bangkok_dev_only}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/bangkok_flood
+      SPRING_DATASOURCE_USERNAME: bangkok
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-bangkok_dev_only}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
+    ports:
+      - "8081:8081"
+    mem_limit: 600m
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:8081
+    depends_on:
+      - backend
+    ports:
+      - "3000:3000"
+    mem_limit: 300m
+    restart: unless-stopped
+
+  loader:
+    build:
+      context: ./infra
+      dockerfile: Dockerfile.loader
+    profiles:
+      - load
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://bangkok:${POSTGRES_PASSWORD:-bangkok_dev_only}@db:5432/bangkok_flood
+      CACHE_DIR: /cache
+    volumes:
+      - osm_cache:/cache
+    command:
+      - sh
+      - -c
+      - >-
+        python load_osm.py &&
+        python -c 'import os, psycopg; conn=psycopg.connect(os.environ["DATABASE_URL"]); conn.execute("REFRESH MATERIALIZED VIEW building_risk"); conn.commit(); conn.close()'
+
+volumes:
+  postgres_data:
+  osm_cache:
