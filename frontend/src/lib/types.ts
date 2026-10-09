@@ -31,6 +31,25 @@ export interface FlyTarget {
   lng: number;
   lat: number;
   key: number;
+  zoom?: number;
+}
+
+export interface SearchRequest {
+  query: string;
+}
+
+export interface SearchInterpretation {
+  districtName: string | null;
+  maxDistanceToRiverMeters: number | null;
+  minRisk: number | null;
+  buildingType: string | null;
+}
+
+export interface SearchResponse {
+  interpretation: SearchInterpretation;
+  usedFallback: boolean;
+  count: number;
+  results: DistrictBuildingsResponse;
 }
 
 export type DistrictsResponse = FeatureCollection<Geometry, DistrictProperties>;

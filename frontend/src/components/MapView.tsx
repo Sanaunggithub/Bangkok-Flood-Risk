@@ -298,7 +298,7 @@ export default function MapView({
         if (!mapReady || !flyTarget) return;
         mapRef.current?.flyTo({
             center: [flyTarget.lng, flyTarget.lat],
-            zoom: 16,
+            zoom: flyTarget.zoom ?? 16,
         });
     }, [flyTarget, mapReady]);
 

@@ -2,6 +2,8 @@ import type {
   DistrictBuildingsResponse,
   DistrictsResponse,
   NearRiverBuildingsResponse,
+  SearchRequest,
+  SearchResponse,
   TopRiskResponse,
 } from './types';
 
@@ -43,4 +45,24 @@ export function getTopRiskBuildings(
   if (districtId !== undefined) query.set('districtId', String(districtId));
 
   return getJson(`/api/buildings/top-risk?${query.toString()}`);
+}
+
+export async function searchBuildings(query: string): Promise<SearchResponse> {
+  const body: SearchRequest = { query };
+  const response = await fetch(`${API_BASE_URL}/api/search`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+
+  if (response.status === 429) {
+    throw new Error('Too many searches, try again in a minute');
+  }
+
+  if (!response.ok) {
+    const statusText = response.statusText ? `: ${response.statusText}` : '';
+    throw new Error(`Search failed (${response.status})${statusText}`);
+  }
+
+  return response.json() as Promise<SearchResponse>;
 }

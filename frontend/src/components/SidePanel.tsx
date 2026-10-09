@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Alert,
   Box,
   Button,
+  Chip,
   CircularProgress,
   Divider,
   List,
@@ -13,10 +14,11 @@ import {
   Paper,
   Slider,
   Stack,
+  TextField,
   Typography,
 } from '@mui/material';
 import { getTopRiskBuildings } from '../lib/api';
-import type { DistrictProperties, TopRiskResponse } from '../lib/types';
+import type { DistrictProperties, SearchResponse, TopRiskResponse } from '../lib/types';
 
 interface SidePanelProps {
   district: DistrictProperties | null;
@@ -26,8 +28,16 @@ interface SidePanelProps {
   onMinRiskChange: (value: number) => void;
   onFlyTo: (lng: number, lat: number) => void;
   onShowNearRiver: (meters: number) => void;
+  onSearch: (query: string) => void;
+  searchInfo: Pick<SearchResponse, 'interpretation' | 'usedFallback' | 'count'> | null;
   onClear: () => void;
 }
+
+const EXAMPLE_QUERIES = [
+  'High-risk buildings near the river in Bang Rak',
+  'Buildings within 300 m of the river',
+  'Residential buildings with risk above 0.7',
+];
 
 function getBuildingTitle(name: unknown, buildingType: unknown): string {
   const buildingName = typeof name === 'string' ? name.trim() : '';
@@ -47,48 +57,64 @@ export default function SidePanel({
   onMinRiskChange,
   onFlyTo,
   onShowNearRiver,
+  onSearch,
+  searchInfo,
   onClear,
 }: SidePanelProps) {
   const [meters, setMeters] = useState(500);
-  const [topRiskBuildings, setTopRiskBuildings] = useState<TopRiskResponse | null>(null);
-  const [topRiskLoading, setTopRiskLoading] = useState(true);
-  const [topRiskError, setTopRiskError] = useState<string | null>(null);
-  const topRiskRequestId = useRef(0);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [topRisk, setTopRisk] = useState<{
+    key: string;
+    data: TopRiskResponse | null;
+    error: string | null;
+  } | null>(null);
 
   const districtName =
     district?.district_name ||
     district?.name ||
     (district ? `District ${district.district_id}` : 'No district selected');
 
-  useEffect(() => {
-    const currentRequest = ++topRiskRequestId.current;
-    setTopRiskLoading(true);
-    setTopRiskError(null);
+  const requestKey = String(district?.district_id ?? 'all');
 
-    void getTopRiskBuildings(10, district?.district_id)
+  useEffect(() => {
+    let cancelled = false;
+
+    getTopRiskBuildings(10, district?.district_id)
       .then((data) => {
-        if (currentRequest === topRiskRequestId.current) {
-          setTopRiskBuildings(data);
-        }
+        if (!cancelled) setTopRisk({ key: requestKey, data, error: null });
       })
       .catch((cause: unknown) => {
-        if (currentRequest === topRiskRequestId.current) {
-          setTopRiskBuildings(null);
-          setTopRiskError(
-            cause instanceof Error ? cause.message : 'Could not load top-risk buildings.',
-          );
+        if (!cancelled) {
+          setTopRisk({
+            key: requestKey,
+            data: null,
+            error:
+              cause instanceof Error ? cause.message : 'Could not load top-risk buildings.',
+          });
         }
-      })
-      .finally(() => {
-        if (currentRequest === topRiskRequestId.current) setTopRiskLoading(false);
       });
 
     return () => {
-      if (currentRequest === topRiskRequestId.current) {
-        topRiskRequestId.current += 1;
-      }
+      cancelled = true;
     };
-  }, [district?.district_id]);
+  }, [district?.district_id, requestKey]);
+
+  const topRiskCurrent = topRisk?.key === requestKey ? topRisk : null;
+  const topRiskLoading = topRiskCurrent === null;
+  const topRiskBuildings = topRiskCurrent?.data ?? null;
+  const topRiskError = topRiskCurrent?.error ?? null;
+
+  const submitSearch = (query: string) => {
+    const trimmedQuery = query.trim();
+    if (trimmedQuery && !loading) onSearch(trimmedQuery);
+  };
+
+  const handleClear = () => {
+    setSearchQuery('');
+    onClear();
+  };
+
+  const interpretation = searchInfo?.interpretation;
 
   return (
     <Paper
@@ -105,6 +131,82 @@ export default function SidePanel({
       }}
     >
       <Stack spacing={2}>
+        <Box>
+          <Typography variant="subtitle1">Ask about the map</Typography>
+          <Box
+            component="form"
+            onSubmit={(event) => {
+              event.preventDefault();
+              submitSearch(searchQuery);
+            }}
+            sx={{ display: 'flex', gap: 1, mt: 1 }}
+          >
+            <TextField
+              fullWidth
+              size="small"
+              label="Ask about the map"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+            />
+            <Button type="submit" variant="contained" disabled={loading || !searchQuery.trim()}>
+              Search
+            </Button>
+          </Box>
+
+          <Stack direction="row" useFlexGap sx={{ mt: 1, flexWrap: 'wrap', gap: 0.75 }}>
+            {EXAMPLE_QUERIES.map((query) => (
+              <Chip
+                key={query}
+                size="small"
+                label={query}
+                onClick={() => {
+                  setSearchQuery(query);
+                  submitSearch(query);
+                }}
+                disabled={loading}
+              />
+            ))}
+          </Stack>
+
+          {searchInfo && (
+            <Box sx={{ mt: 1.5 }}>
+              <Typography variant="body2" color="text.secondary">
+                Interpreted as:
+              </Typography>
+              <Stack direction="row" useFlexGap sx={{ mt: 0.75, flexWrap: 'wrap', gap: 0.75 }}>
+                {interpretation?.districtName && (
+                  <Chip size="small" label={`District: ${interpretation.districtName}`} />
+                )}
+                {interpretation?.maxDistanceToRiverMeters !== null &&
+                  interpretation?.maxDistanceToRiverMeters !== undefined && (
+                    <Chip
+                      size="small"
+                      label={`≤ ${interpretation.maxDistanceToRiverMeters} m from river`}
+                    />
+                  )}
+                {interpretation?.minRisk !== null && interpretation?.minRisk !== undefined && (
+                  <Chip size="small" label={`Risk ≥ ${interpretation.minRisk}`} />
+                )}
+                {interpretation?.buildingType && (
+                  <Chip size="small" label={`Type: ${interpretation.buildingType}`} />
+                )}
+              </Stack>
+              <Typography variant="body2" sx={{ mt: 1 }}>
+                {searchInfo.count === 0
+                  ? 'No matching buildings found. Try changing your search.'
+                  : `${searchInfo.count} ${searchInfo.count === 1 ? 'building' : 'buildings'} found.`}
+              </Typography>
+              {searchInfo.usedFallback && (
+                <Typography variant="caption" color="text.secondary">
+                  Basic keyword matching used (AI unavailable)
+                </Typography>
+              )}
+            </Box>
+          )}
+        </Box>
+
+        <Divider />
+
         <Typography variant="h6">Bangkok flood risk</Typography>
 
         <Box>
@@ -225,7 +327,7 @@ export default function SidePanel({
           building height (30%). It is not real flood data.
         </Typography>
 
-        <Button variant="outlined" onClick={onClear}>
+        <Button variant="outlined" onClick={handleClear}>
           Clear
         </Button>
       </Stack>
