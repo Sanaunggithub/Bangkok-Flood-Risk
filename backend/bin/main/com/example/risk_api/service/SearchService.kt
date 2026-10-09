@@ -46,10 +46,17 @@ class SearchService(
         val normalizedQuery = query.trim().lowercase()
         val cached = getCached(normalizedQuery)
 
-        val (filters, usedFallback) = cached ?: parseFilters(query.trim())
-        if (cached == null) {
-            putCached(normalizedQuery, CachedFilters(System.currentTimeMillis(), filters, usedFallback))
-        }
+        val (filters, usedFallback) =
+            if (cached != null) {
+                cached.filters to cached.usedFallback
+            } else {
+                parseFilters(query.trim()).also { (parsedFilters, parsedFallback) ->
+                    putCached(
+                        normalizedQuery,
+                        CachedFilters(System.currentTimeMillis(), parsedFilters, parsedFallback)
+                    )
+                }
+            }
 
         val rows = searchRepository.search(filters)
         return SearchResponse(
