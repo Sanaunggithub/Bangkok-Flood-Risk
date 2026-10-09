@@ -33,4 +33,6 @@ next-env.d.ts
 # editor / OS
 .idea/
 .vscode/
-.DS_Store
+.DS_Storebackend/bin/
+
+.github/
